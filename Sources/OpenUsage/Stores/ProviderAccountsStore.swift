@@ -32,6 +32,8 @@ struct ProviderAccountSource: Codable, Equatable, Sendable {
         case defaultHome
         case claudeSwap
         case codexSwap
+        /// A CLIProxyAPI hub that holds the account's login; `anchor` is the hub id.
+        case usageHub
     }
 
     var kind: Kind
@@ -52,6 +54,12 @@ struct ProviderAccountRecord: Codable, Equatable, Sendable {
     var sources: [ProviderAccountSource]
     /// Set by a future "Remove Account…". A tombstoned account is never resurrected by rescans.
     var removedTombstone: Bool = false
+
+    /// Whether a login on this Mac attaches to the account. A hub-only account has no local logs to
+    /// own, so it never counts toward the "one local account owns all local history" rules.
+    var hasLocalSource: Bool {
+        sources.contains { $0.kind != .usageHub }
+    }
 }
 
 /// The account-first registry (`openusage.providerAccounts.v1`). Reconciled at every launch from the
@@ -168,9 +176,12 @@ final class ProviderAccountsStore {
     }
 
     /// The bare family id when free (the migration-killing rule: the first account observed at the
-    /// default home IS the existing card), else an identity-derived `family@<hash8>` id.
+    /// default home IS the existing card), else an identity-derived `family@<hash8>` id. The bare id
+    /// belongs to a local login: a hub-only account always mints, so the family's default card stays
+    /// free for the login this Mac makes later.
     private static func availableID(for observation: Observation, in records: [ProviderAccountRecord]) -> String {
-        if !records.contains(where: { $0.id == observation.family }) { return observation.family }
+        let hubOnly = observation.sources.allSatisfy { $0.kind == .usageHub }
+        if !hubOnly, !records.contains(where: { $0.id == observation.family }) { return observation.family }
         let derived = ProviderAccountID.make(family: observation.family, identityKey: observation.identityKey)
         guard records.contains(where: { $0.id == derived }) else { return derived }
         // A hash-prefix collision between two distinct identities of one family; salt until free.

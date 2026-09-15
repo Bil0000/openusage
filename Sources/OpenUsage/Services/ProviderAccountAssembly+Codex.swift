@@ -17,7 +17,7 @@ extension ProviderAccountAssembly {
             environment: observer.environment, files: observer.files, home: observer.homeDirectory()
         )
         guard !swaps.isEmpty || accountsStore.records.contains(where: {
-            $0.family == "codex" && $0.identityKey.contains("|")
+            $0.family == "codex" && $0.identityKey.contains("|") && $0.hasLocalSource
         }) else { return [] }
         let home = observer.homeDirectory().path
         func expanded(_ path: String) -> String {
@@ -63,7 +63,7 @@ extension ProviderAccountAssembly {
                     source: .init(kind: .codexSwap, anchor: swap.home, holdsDefaultSource: false))
         }
         let records = accountsStore.reconcile(with: observations)
-        let allowsUnattributed = records.count { $0.family == "codex" } == 1
+        let allowsUnattributed = records.count { $0.family == "codex" && $0.hasLocalSource } == 1
         let logHomes = Array(Set(swaps.flatMap { [$0.mainHome, $0.home] })).sorted()
         // Registry order is persistent; observation order follows the current default login.
         // Even an uncustomized layout must keep its cards in place after a switch and relaunch.

@@ -44,6 +44,19 @@ final class CodexProvider: ProviderRuntime {
     }
 
     var widgetDescriptors: [WidgetDescriptor] {
+        Self.limitDescriptors(provider: provider) + [
+            .usageTrend(provider: provider)
+                .exportingHistory(
+                    scope: .machineLocal,
+                    estimatedCost: true,
+                    sourceNote: "From your Codex logs (estimated)"
+                )
+        ] + WidgetDescriptor.spendTiles(provider: provider)
+    }
+
+    /// The live-limit rows every Codex card shows, local login or hub account alike. The trend and
+    /// spend tiles above need the session logs, which only a local login has.
+    static func limitDescriptors(provider: Provider) -> [WidgetDescriptor] {
         [
             .percent(id: "\(provider.id).session", provider: provider, title: "Session")
                 .exportingLimit("session", unit: "percent"),
@@ -60,14 +73,8 @@ final class CodexProvider: ProviderRuntime {
                 .exportingLimit("credits", kind: .balance, unit: "credits", source: .value(kind: .count, label: "credits"))
                 .exportingLimit("creditValue", kind: .balance, unit: "usd", source: .value(kind: .dollars)),
             .values(id: "\(provider.id).rateLimitResets", provider: provider, title: "Rate Limit Resets", metricLabel: "Rate Limit Resets", traySuffix: "resets", showsResetExpiries: true)
-                .exportingLimit("rateLimitResets", kind: .balance, unit: "resets", source: .value(kind: .count, label: "available")),
-            .usageTrend(provider: provider)
-                .exportingHistory(
-                    scope: .machineLocal,
-                    estimatedCost: true,
-                    sourceNote: "From your Codex logs (estimated)"
-                )
-        ] + WidgetDescriptor.spendTiles(provider: provider)
+                .exportingLimit("rateLimitResets", kind: .balance, unit: "resets", source: .value(kind: .count, label: "available"))
+        ]
     }
 
     func hasLocalCredentials() async -> Bool {

@@ -34,6 +34,8 @@ Either way, the app updates itself in place via signed, notarized [Sparkle](docs
 - **[OpenRouter](docs/providers/openrouter.md)** — credit balance, daily/weekly/monthly spend (API key)
 - **[Z.ai](docs/providers/zai.md)** — session, weekly, web-search quotas (GLM Coding Plan, API key)
 
+Claude and Codex accounts pooled by a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) hub show as their own cards once the hub is connected in [Settings → Usage Hubs](docs/settings.md#usage-hubs).
+
 Most providers read the credentials already on your machine (keychain, auth files, app state) — no extra login. OpenRouter and Z.ai are the exceptions: they have no local credential to reuse, so you supply an API key (see [OpenRouter setup](docs/providers/openrouter.md) or [Z.ai setup](docs/providers/zai.md)). Credentials are used only for the corresponding provider requests. OpenUsage's separate anonymous summaries and public pricing downloads are documented under [Privacy & usage data](docs/privacy.md).
 
 ## Features

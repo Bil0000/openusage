@@ -20,14 +20,18 @@ struct ClaudeAccountCard: Equatable, Sendable {
 struct ProviderAccountAssembly {
     /// Card id → the account identity signed in there this launch. Phase 1 observes only default
     /// homes, so the keys are the bare family ids; a family whose identity didn't resolve is absent.
-    let identityKeysByCard: [String: String]
+    var identityKeysByCard: [String: String]
     var claudeCards: [ClaudeAccountCard] = []
     var codexCards: [CodexAccountCard] = []
+    /// Hub-held accounts with no local login this launch (see `ProviderAccountAssembly+UsageHub`).
+    var hubCards: [UsageHubAccountCard] = []
 
     /// `waitsForLoginShell`: true for the menu-bar app (a Finder/Dock launch inherits no shell
     /// exports, so the pass leans on the login-shell layers), false for the one-shot CLI (a terminal
     /// launch's process environment already carries the user's exports).
-    static func make(defaults: UserDefaults = .standard, waitsForLoginShell: Bool) async -> ProviderAccountAssembly {
+    static func make(
+        defaults: UserDefaults = .standard, waitsForLoginShell: Bool, hubs: [UsageHubConfig] = []
+    ) async -> ProviderAccountAssembly {
         // The identity read needs the login shell's exports (CLAUDE_CONFIG_DIR/CODEX_HOME name the
         // default homes), and it reads them through the very same reader the provider auth stores
         // use — `ProcessEnvironmentReader`, which pins identity-relevant keys to the persisted
@@ -50,11 +54,9 @@ struct ProviderAccountAssembly {
         if families.count < ProviderAccountID.families.count {
             AppLog.info(.config, "account identity read skipped for \(ProviderAccountID.families.subtracting(families).sorted().joined(separator: ", ")): login shell cold and no shell-environment snapshot exists yet")
         }
-        return await make(
-            observer: DefaultAccountObserver(),
-            accountsStore: ProviderAccountsStore(defaults: defaults),
-            families: families
-        )
+        let accountsStore = ProviderAccountsStore(defaults: defaults)
+        let local = await make(observer: DefaultAccountObserver(), accountsStore: accountsStore, families: families)
+        return attachHubAccounts(to: local, hubs: hubs, accountsStore: accountsStore)
     }
 
     /// The environment variable that relocates each family's default home — the fact whose
@@ -68,7 +70,8 @@ struct ProviderAccountAssembly {
     /// The environment-independent core, separated so tests inject a fixed observer and scratch
     /// store. `families` limits the pass to the families whose home facts are readable this launch
     /// (see `make(defaults:waitsForLoginShell:)`); a family left out is simply not observed —
-    /// no identity key, no reconciliation, exactly as if the pass never ran for it.
+    /// no identity key, no reconciliation, exactly as if the pass never ran for it. Hub accounts
+    /// attach afterwards (`attachHubAccounts`), so a hub never claims an account this Mac is signed in to.
     static func make(
         observer: DefaultAccountObserver,
         accountsStore: ProviderAccountsStore,
@@ -172,7 +175,7 @@ struct ProviderAccountAssembly {
 
         let defaultClaudeIdentity = identityKeys["claude"]
         let records = accountsStore.reconcile(with: observations)
-        let allowsUnattributedPiUsage = records.count { $0.family == "claude" } == 1
+        let allowsUnattributedPiUsage = records.count { $0.family == "claude" && $0.hasLocalSource } == 1
         var cards: [ClaudeAccountCard] = []
         if let defaultIdentity = defaultClaudeIdentity,
            let organization = defaultIdentity.split(separator: "|").last,

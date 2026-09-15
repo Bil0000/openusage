@@ -247,6 +247,19 @@ extension ZAIUsageError: CategorizedError {
     }
 }
 
+extension UsageHubError: CategorizedError {
+    var errorCategory: ErrorCategory {
+        switch self {
+        case .invalidURL, .unauthorized: .authInvalid
+        case .connectionFailed: .network
+        case .managementFailed(let status): ErrorCategory.http(status)
+        case .invalidResponse: .decoding
+        case .accountUnavailable: .notAvailable
+        case .accountAuthExpired: .authExpired
+        }
+    }
+}
+
 extension HTTPClientError: CategorizedError {
     var errorCategory: ErrorCategory {
         switch self {

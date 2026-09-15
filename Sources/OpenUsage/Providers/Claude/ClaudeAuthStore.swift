@@ -67,6 +67,14 @@ struct ClaudeAuthStore: Sendable {
     private static let prodClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     private static let nonProdClientID = "22422756-60c9-4084-8eb7-27705fd5cf9a"
 
+    /// Anthropic's production endpoints, for callers with no login environment to derive them from (a
+    /// hub-held account is whatever the hub signed in; its `api-call` tunnel targets production).
+    static let productionOAuthConfig = ClaudeOAuthConfig(
+        usageURL: URL(string: "\(prodBaseAPIURL)/api/oauth/usage")!,
+        refreshURL: URL(string: prodRefreshURL)!,
+        clientID: prodClientID
+    )
+
     var environment: EnvironmentReading
     var files: TextFileAccessing
     var keychain: KeychainAccessing
