@@ -11,13 +11,13 @@ extension CodexProvider {
             var changed = false
             for candidate in candidates {
                 guard let token = candidate.auth.tokens?.accessToken else { continue }
-                guard authStore.isCurrent(candidate) else { changed = true; break }
+                guard await authStore.isCurrent(candidate) else { changed = true; break }
                 if let expiry = authStore.accessTokenExpiresAt(token), expiry <= now() { continue }
                 do {
                     let response = try await usageClient.fetchUsage(
                         accessToken: token, accountID: candidate.auth.tokens?.accountID
                     )
-                    guard authStore.isCurrent(candidate) else { changed = true; break }
+                    guard await authStore.isCurrent(candidate) else { changed = true; break }
                     if response.statusCode == 401 || response.statusCode == 403 {
                         AppLog.warn(LogTag.auth("codex"), "account credential rejected; trying a matching login")
                         continue
@@ -25,10 +25,10 @@ extension CodexProvider {
                     let resets = await accountResetCredits(candidate)
                     let mapped = try CodexUsageMapper.mapUsageResponse(response, resetCredits: resets, now: now())
                     let result = await snapshot(mapped: mapped)
-                    guard authStore.isCurrent(candidate) else { changed = true; break }
+                    guard await authStore.isCurrent(candidate) else { changed = true; break }
                     return result
                 } catch {
-                    guard authStore.isCurrent(candidate) else { changed = true; break }
+                    guard await authStore.isCurrent(candidate) else { changed = true; break }
                     return ProviderSnapshot.error(provider: provider, error: error)
                 }
             }

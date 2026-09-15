@@ -11,6 +11,7 @@ final class CodexProvider: ProviderRuntime {
 
     let provider: Provider
     let allowsUnattributedHistory: Bool
+    var allowsCachedLocalHistory: Bool { allowsUnattributedHistory }
 
     let authStore: CodexAuthStore
     let usageClient: CodexUsageClient

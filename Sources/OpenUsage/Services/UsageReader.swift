@@ -53,7 +53,7 @@ public struct UsageReader {
             }.value
         }
         let accountAssembly = providersOverride == nil
-            ? ProviderAccountAssembly.make(defaults: defaults, waitsForLoginShell: false)
+            ? await ProviderAccountAssembly.make(defaults: defaults, waitsForLoginShell: false)
             : ProviderAccountAssembly(identityKeysByCard: [:])
         let providers = providersOverride ?? ProviderCatalog.make(
             defaults: defaults,
@@ -80,6 +80,7 @@ public struct UsageReader {
             matchedIDs?.contains(id) ?? enablement.isEnabled(id)
         }
         let cache = ProviderSnapshotCache(userDefaults: defaults, allowsPersistedFreshness: true)
+        cache.removeExcludedHistory(for: providers)
         let allProviderIDs = registry.providers.map(\.id)
         // The same account guard the app applies at launch: an entry that provably belongs to another
         // account (swap since it was written) is never served, and its provider counts as needing a

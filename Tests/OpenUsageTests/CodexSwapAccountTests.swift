@@ -39,21 +39,21 @@ final class CodexSwapAccountTests: XCTestCase {
         ])
     }
 
-    private func assembly(_ files: FakeFiles, store: ProviderAccountsStore) -> ProviderAccountAssembly {
+    private func assembly(_ files: FakeFiles, store: ProviderAccountsStore) async -> ProviderAccountAssembly {
         let home = home
-        return ProviderAccountAssembly.make(observer: DefaultAccountObserver(
+        return await ProviderAccountAssembly.make(observer: DefaultAccountObserver(
             environment: environment, files: files, keychain: FakeKeychain(), homeDirectory: { home }
         ), accountsStore: store, families: ["codex"])
     }
 
-    func testDiscoveryMergesOverlapAndKeepsIDsLayoutPinsAcrossDefaultSwitches() throws {
+    func testDiscoveryMergesOverlapAndKeepsIDsLayoutPinsAcrossDefaultSwitches() async throws {
         let files = fixture()
         let defaults = try defaults()
         let store = ProviderAccountsStore(defaults: defaults)
         // Upgrade an existing single-account install without moving its card or pins.
         store.reconcile(with: [.init(family: "codex", identityKey: a.accountID, label: a.email,
                                     sources: [.init(kind: .defaultHome, anchor: "/test/main", holdsDefaultSource: true)])])
-        let initial = assembly(files, store: store)
+        let initial = await assembly(files, store: store)
         XCTAssertEqual(initial.codexCards.count, 2)
         XCTAssertEqual(initial.codexCards.first { $0.identity == a }?.id, "codex")
         let ids = Dictionary(uniqueKeysWithValues: initial.codexCards.map { ($0.identity.key, $0.id) })
@@ -65,11 +65,12 @@ final class CodexSwapAccountTests: XCTestCase {
         let order = layout.providerOrder
         for selected in [b, a, b] {
             files.files["/test/main/auth.json"] = Self.credential(selected, token: "new-default")
-            let next = assembly(files, store: store)
+            let next = await assembly(files, store: store)
             XCTAssertEqual(next.codexCards.count, 2)
             XCTAssertEqual(next.codexCards.map(\.id), initial.codexCards.map(\.id))
             XCTAssertEqual(Dictionary(uniqueKeysWithValues: next.codexCards.map { ($0.identity.key, $0.id) }), ids)
-            XCTAssertEqual(assembly(files, store: store).codexCards, next.codexCards)
+            let repeated = await assembly(files, store: store)
+            XCTAssertEqual(repeated.codexCards, next.codexCards)
             XCTAssertTrue(next.codexCards.allSatisfy { !$0.allowsUnattributedHistory })
             let restored = LayoutStore(registry: .from(ProviderCatalog.make(codexCards: next.codexCards)), defaults: defaults)
             XCTAssertEqual(restored.pinnedMetricIDs, pins)
@@ -78,19 +79,19 @@ final class CodexSwapAccountTests: XCTestCase {
         }
     }
 
-    func testSameEmailDifferentWorkspacesAndSameWorkspaceDifferentUsersStaySeparate() throws {
+    func testSameEmailDifferentWorkspacesAndSameWorkspaceDifferentUsersStaySeparate() async throws {
         for second in [CodexAccountIdentity(accountID: "workspace-b", email: a.email)!,
                        CodexAccountIdentity(accountID: a.accountID, email: b.email)!] {
-            let cards = assembly(fixture(second: second), store: ProviderAccountsStore(defaults: try defaults())).codexCards
+            let cards = await assembly(fixture(second: second), store: ProviderAccountsStore(defaults: try defaults())).codexCards
             XCTAssertEqual(cards.count, 2)
             XCTAssertEqual(Set(cards.map(\.displayName)).count, 2)
             XCTAssertEqual(Set(cards.map { $0.identity.key }).count, 2)
         }
     }
 
-    func testAdditionalCardInheritsDefaultsOnFreshAndExistingLayouts() throws {
+    func testAdditionalCardInheritsDefaultsOnFreshAndExistingLayouts() async throws {
         let defaults = try defaults()
-        let cards = assembly(fixture(), store: ProviderAccountsStore(defaults: defaults)).codexCards
+        let cards = await assembly(fixture(), store: ProviderAccountsStore(defaults: defaults)).codexCards
         let registry = WidgetRegistry.from(ProviderCatalog.make(codexCards: cards))
         let ids = cards.map(\.id)
         func layout() -> LayoutStore {
@@ -263,12 +264,12 @@ final class CodexSwapAccountTests: XCTestCase {
         XCTAssertThrowsError(try store.save(credential))
     }
 
-    func testRemovingSwapRegistryKeepsKnownOwnershipAndExistingCardID() throws {
+    func testRemovingSwapRegistryKeepsKnownOwnershipAndExistingCardID() async throws {
         let files = fixture()
         let store = ProviderAccountsStore(defaults: try defaults())
-        let initial = assembly(files, store: store)
+        let initial = await assembly(files, store: store)
         files.files.removeValue(forKey: "/test/.local/share/codex-swap/accounts.json")
-        let next = assembly(files, store: store)
+        let next = await assembly(files, store: store)
         XCTAssertEqual(next.codexCards.count, 1)
         XCTAssertEqual(next.codexCards.first?.id, initial.codexCards.first { $0.identity == a }?.id)
         XCTAssertEqual(next.codexCards.first?.allowsUnattributedHistory, false)

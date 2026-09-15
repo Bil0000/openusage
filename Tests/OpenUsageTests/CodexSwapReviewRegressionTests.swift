@@ -32,7 +32,7 @@ final class CodexSwapReviewRegressionTests: XCTestCase {
             let observer = DefaultAccountObserver(environment: environment, files: files,
                 keychain: FakeKeychain(), homeDirectory: { URL(fileURLWithPath: "/test") })
             let store = ProviderAccountsStore(defaults: defaults)
-            let assembly = ProviderAccountAssembly.make(observer: observer, accountsStore: store, families: ["codex"])
+            let assembly = await ProviderAccountAssembly.make(observer: observer, accountsStore: store, families: ["codex"])
             XCTAssertEqual(assembly.codexCards.count, 3)
             guard let card = assembly.codexCards.first(where: {
                 missingWorkspace ? $0.identity.accountID.isEmpty : $0.identity.email == nil
@@ -40,8 +40,8 @@ final class CodexSwapReviewRegressionTests: XCTestCase {
             XCTAssertEqual(card.id, "codex")
             XCTAssertFalse(card.allowsUnattributedHistory)
             XCTAssertEqual(Set(assembly.codexCards.map(\.displayName)).count, 3)
-            XCTAssertEqual(assembly.codexCards,
-                ProviderAccountAssembly.make(observer: observer, accountsStore: store, families: ["codex"]).codexCards)
+            let repeated = await ProviderAccountAssembly.make(observer: observer, accountsStore: store, families: ["codex"])
+            XCTAssertEqual(assembly.codexCards, repeated.codexCards)
             let original = files.files
             let deferred = CodexAuthStore(environment: environment, files: files, keychain: FakeKeychain())
             let credential = try XCTUnwrap(deferred.loadAuthCandidates().first)

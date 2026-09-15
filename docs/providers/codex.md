@@ -29,7 +29,9 @@ Each account and workspace gets its own card, labeled with its alias and email. 
 with the same account when you switch the default login. Restart OpenUsage after adding, removing,
 or renaming an account. Custom locations set with `XSWAP_HOME` or `XDG_DATA_HOME` are supported.
 
-- Matching logins share a card. If one expires, OpenUsage tries another login for that account.
+- Matching file, Keychain, and Swap logins share a card. If one expires, OpenUsage tries another
+  login for that account. Keychain-only accounts and Swap custom main homes are included, even
+  when they have no saved Swap slot. Keychain reads run in the background.
 - OpenUsage only reads Swap credentials; Codex handles renewing them. If a card needs a login,
   run `xswap run <account>` or `xswap login <account>`, then refresh OpenUsage.
 - Concurrent `xswap run` sessions are supported. Close Codex sessions before using `xswap switch`
@@ -38,7 +40,9 @@ or renaming an account. Custom locations set with `XSWAP_HOME` or `XDG_DATA_HOME
 ## The spend tiles
 
 With multiple Codex accounts, spending without a reliable account owner is excluded, including
-previously cached spending. A shared session folder does not establish who paid for a turn.
+previously cached spending. Excluded history is removed before cached data appears or syncs,
+even if the login has expired or the usage request fails. Cached live limits keep their original
+freshness. A shared session folder does not establish who paid for a turn.
 With one known account, shared and copied sessions count once. Synced history must match the
 card's account and workspace. Live usage limits continue to work for every account.
 

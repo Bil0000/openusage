@@ -58,7 +58,7 @@ final class AppContainer {
 
     /// `isFreshInstall` must be captured by the caller BEFORE `SettingsMigrator.migrate()` runs (the
     /// migrator's schema stamp makes the defaults domain non-empty). See `AppDelegate`.
-    init(isFreshInstall: Bool = false) {
+    init(isFreshInstall: Bool = false) async {
         // Capture the user's login-shell environment off-main so provider keys exported in a shell
         // profile (e.g. OPENROUTER_API_KEY) resolve in a Finder/Dock-launched build, not only when
         // run from a terminal. Warmed here so the first refresh finds the cache ready.
@@ -68,7 +68,7 @@ final class AppContainer {
         self.shellEnvironmentSnapshotTask = ShellEnvironmentSnapshotStore(defaults: .standard).startRefreshTask()
         // The launch account pass: which account is signed in at each family's default home. Feeds
         // the snapshot cache's account stamp and reconciles the account registry.
-        let accountAssembly = ProviderAccountAssembly.make(waitsForLoginShell: true)
+        let accountAssembly = await ProviderAccountAssembly.make(waitsForLoginShell: true)
 
         let providers = ProviderCatalog.make(
             claudeCards: accountAssembly.claudeCards,

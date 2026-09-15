@@ -15,7 +15,9 @@ this Mac's next iCloud write, while its local cached snapshot remains.
 
 Claude history that identifies its account and organization is combined only with matching accounts on
 other Macs. Older single-account history without account information remains compatible when only one
-Claude card is visible, and is ignored when multiple cards are visible.
+Claude card is visible, and is ignored when multiple cards are visible. If Codex account history
+requires an account-aware sync file, Claude history without a known account is omitted from that
+file. Other providers continue syncing.
 
 Codex Swap cards combine history only when its account and workspace match. Older Codex history
 without that information is excluded from Swap cards. Codex installations without account cards
