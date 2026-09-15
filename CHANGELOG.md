@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.7.12-beta.2
+
+### Bug Fixes
+- fix: discover Claude Swap accounts and isolate their usage ([#1226](https://github.com/robinebers/openusage/pull/1226)) by @maddada
+- Fix exhausted Devin weekly quota when percentage is omitted ([#1251](https://github.com/robinebers/openusage/pull/1251)) by @robinebers
+- fix(claude): keep usage records whose nested iteration model is null ([#1261](https://github.com/robinebers/openusage/pull/1261)) by @robinebers
+- fix(claude): read the plan badge from Anthropic's live profile ([#1262](https://github.com/robinebers/openusage/pull/1262)) by @robinebers
+
+---
+
+### Changelog
+**Full Changelog**: [v0.7.12-beta.1...v0.7.12-beta.2](https://github.com/robinebers/openusage/compare/v0.7.12-beta.1...v0.7.12-beta.2)
+
+- [a0b408c](https://github.com/robinebers/openusage/commit/a0b408cd6bf5829fe9d27bfb6b91a54624a4a56a) fix: discover Claude Swap accounts and isolate their usage (#1226) by @maddada
+- [6a28ace](https://github.com/robinebers/openusage/commit/6a28acec9a87320f88f5056c5ba9dd3daacf3167) Fix exhausted Devin weekly quota when percentage is omitted (#1251) by @robinebers
+- [da03748](https://github.com/robinebers/openusage/commit/da0374816ecd8f5a9acfc42f8ff8b80d8e13402d) fix(claude): keep usage records whose nested iteration model is null (#1261) by @robinebers
+- [ced86a1](https://github.com/robinebers/openusage/commit/ced86a14f46156201456ba3359097d26671320ed) fix(claude): read the plan badge from Anthropic's live profile (#1262) by @robinebers
+
 ## v0.7.12-beta.1
 
 ### New Features
