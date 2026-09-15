@@ -5,23 +5,23 @@ import XCTest
 /// hub-only cards that never claim a local login's card, and the saved hub config.
 @MainActor
 final class UsageHubTests: XCTestCase {
-    private static let hub = UsageHubConfig(id: "cliproxy-hub.test", url: "http://hub.test:8317", managementKey: "management-secret")
-    private static let codexA = UsageHubAccount(
+    private nonisolated static let hub = UsageHubConfig(id: "cliproxy-hub.test", url: "http://hub.test:8317", managementKey: "management-secret")
+    private nonisolated static let codexA = UsageHubAccount(
         id: "first.json", authIndex: "a", family: "codex", email: "first@example.com",
         identityKey: "account-a|first@example.com"
     )
-    private static let claudeB = UsageHubAccount(
+    private nonisolated static let claudeB = UsageHubAccount(
         id: "claude.json", authIndex: "b", family: "claude", email: "claude@example.com",
         identityKey: "user-b|org-b"
     )
     /// The hub as a launch sees it: both accounts already listed, so Claude's identity is known.
-    private static var connectedHub: UsageHubConfig {
+    private nonisolated static var connectedHub: UsageHubConfig {
         var hub = Self.hub
         hub.accounts = [codexA, claudeB]
         return hub
     }
 
-    private static let listing = Data("""
+    private nonisolated static let listing = Data("""
     {"files": [
       {"id": "first.json", "auth_index": "a", "provider": "codex", "email": "First@Example.com",
        "id_token": {"chatgpt_account_id": "Account-A", "plan_type": "pro"}},
@@ -34,7 +34,7 @@ final class UsageHubTests: XCTestCase {
     """.utf8)
 
     /// A hub that answers the listing, and tunnels `api-call` to `upstream` keyed by credential + URL.
-    private static func makeHub(
+    private nonisolated static func makeHub(
         listing: Data = listing,
         listingStatus: Int = 200,
         upstream: @escaping @Sendable (_ authIndex: String, _ url: String, _ header: [String: String], _ data: String?) -> (Int, String)
@@ -64,7 +64,7 @@ final class UsageHubTests: XCTestCase {
         }
     }
 
-    private static let claudeProfile = #"{"account":{"uuid":"User-B"},"organization":{"uuid":"Org-B","organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"#
+    private nonisolated static let claudeProfile = #"{"account":{"uuid":"User-B"},"organization":{"uuid":"Org-B","organization_type":"claude_max","rate_limit_tier":"default_claude_max_20x"}}"#
 
     // MARK: - Listing
 
@@ -133,7 +133,7 @@ final class UsageHubTests: XCTestCase {
             XCTAssertEqual(url, CodexUsageClient.usageURL.absoluteString)
             return (200, #"{"plan_type": "pro", "rate_limit": {"primary_window": {"used_percent": 12, "limit_window_seconds": 18000}, "secondary_window": {"used_percent": 78, "limit_window_seconds": 604800}}}"#)
         }
-        let listed = Counter()
+        let listed = HubProbe()
         let provider = UsageHubProvider(
             cardID: "codex@ab12cd34",
             source: UsageHubAccountSource(hub: Self.connectedHub, account: Self.codexA),
@@ -219,7 +219,7 @@ final class UsageHubTests: XCTestCase {
         let provider = UsageHubProvider(
             cardID: "codex@1", source: UsageHubAccountSource(hub: Self.hub, account: Self.codexA), displayName: "Codex", http: http
         )
-        let refreshes = Counter()
+        let refreshes = HubProbe()
         let service = try XCTUnwrap(provider.makeCodexResetClaimService(refreshAfterClaim: { refreshes.value += 1 }))
 
         let outcome = await service.claim(creditExpiringAt: expiry, redeemRequestID: UUID().uuidString)
@@ -357,7 +357,7 @@ final class UsageHubTests: XCTestCase {
     }
 }
 
-private final class Counter: @unchecked Sendable {
+private final class HubProbe: @unchecked Sendable {
     var value = 0
     var listings: [[UsageHubAccount]] = []
 }
