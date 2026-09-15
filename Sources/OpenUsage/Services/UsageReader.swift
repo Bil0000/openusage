@@ -58,6 +58,7 @@ public struct UsageReader {
         let providers = providersOverride ?? ProviderCatalog.make(
             defaults: defaults,
             claudeCards: accountAssembly.claudeCards,
+            codexCards: accountAssembly.codexCards,
             claudeIdentityKeys: accountAssembly.identityKeysByCard
         )
         let registry = WidgetRegistry.from(providers)

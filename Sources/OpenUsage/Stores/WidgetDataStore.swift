@@ -429,6 +429,11 @@ final class WidgetDataStore {
                         continue
                     }
                 }
+                if ProviderAccountID.family(of: providerID) == "codex",
+                   let identity = providerIdentityKeys[providerID], identity.contains("|") {
+                    guard CodexAccountIdentity.isComplete(key: identity) else { continue }
+                    identities[providerID] = identity.lowercased()
+                }
                 providers[providerID] = history
             }
         }
@@ -445,7 +450,9 @@ final class WidgetDataStore {
             ProviderAccountID.family(of: $0) == "claude" && $0 != "claude"
         }
         return UsageHistoryDocument(
-            schema: hasClaudeAccountCards ? UsageHistoryDocument.accountSchema : UsageHistoryDocument.currentSchema,
+            schema: hasClaudeAccountCards || identities.keys.contains {
+                ProviderAccountID.family(of: $0) == "codex"
+            } ? UsageHistoryDocument.accountSchema : UsageHistoryDocument.currentSchema,
             deviceID: deviceID,
             deviceName: deviceName,
             updatedAt: updatedAt,
