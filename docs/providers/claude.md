@@ -52,6 +52,35 @@ A `CLAUDE_CODE_OAUTH_TOKEN` — usually a long-lived `claude setup-token` — ca
 
 If one source holds an expired or "locked out" token, OpenUsage falls back to the others — so signing in again with `claude` outside the app is picked up on the next refresh, without restarting OpenUsage. Claude Code tokens are refreshed automatically; rotated tokens are written back only while the ordered login candidates still match the start of the refresh, so a newly added higher-priority login wins. Claude Desktop tokens are never refreshed or written by OpenUsage.
 
+## Claude Swap accounts
+
+OpenUsage discovers the saved accounts in Claude Swap's `~/.claude-swap-backup/sequence.json`
+on launch. Each account gets a card labeled with its organization followed by its email. A login already found through Claude Code
+or Desktop shares the same card when both the account and organization match. Restart OpenUsage after
+adding or removing a saved account.
+
+If the default login identifies an account but has no organization ID, it remains available as a
+separate default card alongside saved Swap accounts. OpenUsage does not guess which saved
+organization it belongs to. Its spending stays excluded while multiple accounts are known, until
+the login identifies its organization.
+
+Saved accounts use the active default login when it names that exact account, followed by their own
+Claude Swap session profile's Keychain entry and credential file. They
+never fall back to another account's default Claude login or an environment token. The saved vault is
+a final, read-only fallback. OpenUsage does not rotate vault tokens or modify Claude Swap's account
+list. If a vault login is stale, launch that account with `cswap run <email>`, then refresh OpenUsage.
+Matching Desktop credentials remain available on the merged card, including when Swap was its
+original source. If a preferred login expires or is rejected, the card tries its other matching
+sources. Every live credential must identify the same account and organization before supplying limits.
+Logins that can read live usage are tried before logins with limited permissions, so a default login
+without `user:profile` does not hide working Session and Weekly limits from a matching saved session.
+Session profile credentials can renew normally, with updates saved back to that same profile.
+
+Local spending includes Claude Swap session histories as well as the default Claude history. Shared
+history is deduplicated and filtered by its recorded account and organization; entries without account
+ownership stay excluded when multiple accounts are known. Broader SDK and Conductor history
+attribution is outside this change's scope; missing ownership is not inferred from the current login.
+
 ## The spend tiles
 
 Today / Yesterday / Last 30 Days are computed **locally**: OpenUsage reads the Claude Code session logs under `~/.claude/projects/` (or `$CLAUDE_CONFIG_DIR`) itself — no external tools needed. Symlinks are followed, so a projects folder linked into a synced location (say, a Dropbox folder) is read all the same. With one known account, Claude usage from the [pi](https://github.com/earendil-works/pi) coding agent counts too: OpenUsage reads pi's session logs under `~/.pi/agent/sessions/` (or `$PI_CODING_AGENT_SESSION_DIR`) and folds any Claude usage there into the same tiles and trend, so a Claude sub driven through pi still shows up here. pi records its own per-message cost, so those dollars come straight from pi rather than being re-estimated. Cowork (the Claude desktop app's agent mode) counts too: it writes the same logs into per-session folders under `~/Library/Application Support/Claude/local-agent-mode-sessions/`, and OpenUsage scans those as well, so desktop agent sessions show up in the tiles alongside terminal ones. Persisted `claude -p` runs count as well. Runs made with `--no-session-persistence` cannot appear because Claude deliberately writes no session log for OpenUsage to read. Advisor work recorded inside a message is counted once under the advisor's own model; the parent's main-model totals are kept separate, and ordinary iteration details are not counted again. A log's recorded fast or standard speed controls its price; OpenUsage does not infer speed from the event date. Days are grouped in your Mac's local time zone, so they line up with your own calendar. Each period is one tile showing cost and tokens together (`$4.08 · 1.2M tokens`); a day with no usage reads **No data** rather than a misleading `$0.00 · 0 tokens` — the same as every other spend-tracking provider. The live Session and Weekly meters are unaffected. The dollars are estimated from token counts at API rates (that's the ⓘ) using the shared [model pricing](../pricing.md); the token counts themselves are measured. No log data leaves your Mac.

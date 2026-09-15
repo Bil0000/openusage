@@ -28,6 +28,7 @@ actor ClaudeLogUsageScanner {
     private let cacheIdentityOverride: String?
     private let organizationID: String?
     private let accountID: String?
+    private let additionalConfigDirectories: [String]
     private let allowsUnattributedSessions: Bool
     private var sessionOwnership: [String: (
         size: Int, mtime: Date, identity: ClaudeSessionIdentity
@@ -71,6 +72,7 @@ actor ClaudeLogUsageScanner {
         accountUUID: String? = nil,
         organizationUUID: String? = nil,
         allowsUnattributedSessions: Bool = false,
+        additionalConfigDirectories: [String] = [],
         readOwnershipData: @escaping @Sendable (URL) throws -> Data = {
             try Data(contentsOf: $0, options: .mappedIfSafe)
         }
@@ -82,6 +84,7 @@ actor ClaudeLogUsageScanner {
         self.cacheIdentityOverride = cacheIdentityOverride
         self.organizationID = organizationUUID?.lowercased()
         self.accountID = accountUUID?.lowercased()
+        self.additionalConfigDirectories = additionalConfigDirectories
         self.allowsUnattributedSessions = allowsUnattributedSessions
         self.readOwnershipData = readOwnershipData
     }
@@ -90,6 +93,12 @@ actor ClaudeLogUsageScanner {
     /// no log files exist (the spend tiles then render "No data"); returns an empty series when logs
     /// exist but have no usage in the window.
     func scan(daysBack: Int = 30, now: Date = Date(), pricing: ModelPricing) async -> LogUsageScan? {
+        // A UUID-only default login still has a card, but cannot claim any organization's history
+        // once multiple identities are known. The unscoped single-account scanner remains unchanged.
+        if accountID != nil, organizationID == nil, !allowsUnattributedSessions {
+            AppLog.info(LogTag.plugin("claude"), "local spending excluded: default login has no organization and multiple accounts are known")
+            return nil
+        }
         let since = JSONLScanning.sinceDate(daysBack: daysBack, now: now)
         let cacheIdentity = parseCacheIdentity()
         let roots = claudeRoots()
@@ -150,7 +159,8 @@ actor ClaudeLogUsageScanner {
                 homeURL.appendingPathComponent(".claude"),
             ]
         }
-        let roots = Set(configuredRoots.map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
+        let allRoots = configuredRoots + additionalConfigDirectories.map { URL(fileURLWithPath: expandHome($0)) }
+        let roots = Set(allRoots.map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
             .sorted()
             .joined(separator: "\n")
         return "home=\(home)\nroots=\(roots)"
@@ -193,6 +203,10 @@ actor ClaudeLogUsageScanner {
                 ?? home.appendingPathComponent(".config")
             addIfValid(xdg.appendingPathComponent("claude"))
             addIfValid(home.appendingPathComponent(".claude"))
+        }
+
+        for directory in additionalConfigDirectories {
+            addIfValid(URL(fileURLWithPath: expandHome(directory)))
         }
 
         for sandbox in Self.coworkClaudeDirs(

@@ -30,6 +30,7 @@ struct ProviderAccountSource: Codable, Equatable, Sendable {
     enum Kind: String, Codable, Sendable {
         /// The provider's standard home for this machine (`~/.claude`, `~/.codex`, env override).
         case defaultHome
+        case claudeSwap
     }
 
     var kind: Kind

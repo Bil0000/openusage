@@ -374,6 +374,9 @@ final class ClaudeProvider: ProviderRuntime {
                 )
             },
             refreshAccessToken: {
+                if working.source == .swapVault {
+                    throw ClaudeAuthError.swapTokenExpired
+                }
                 if working.source == .desktop {
                     throw ClaudeAuthError.desktopTokenExpired
                 }
