@@ -8,10 +8,21 @@ enum ProviderCatalog {
         defaults: UserDefaults = .standard,
         claudeCards: [ClaudeAccountCard] = [],
         codexCards: [CodexAccountCard] = [],
-        claudeIdentityKeys: [String: String] = [:]
+        claudeIdentityKeys: [String: String] = [:],
+        hubCards: [UsageHubAccountCard] = [],
+        onHubAccountsListed: @escaping @MainActor (String, [UsageHubAccount]) -> Void = { _, _ in }
     ) -> [ProviderRuntime] {
         // Default provider order (see AGENTS.md "## Providers"): the three established providers first,
-        // then every other provider alphabetically by display name.
+        // then every other provider alphabetically by display name. Hub-held accounts follow their
+        // family's local cards.
+        func hubProviders(family: String) -> [ProviderRuntime] {
+            hubCards.filter { $0.source.account.family == family }.map { card in
+                UsageHubProvider(
+                    cardID: card.id, source: card.source, displayName: card.source.displayName,
+                    onAccountsListed: { onHubAccountsListed(card.source.hub.id, $0) }
+                )
+            }
+        }
         var providers: [ProviderRuntime]
         if claudeCards.isEmpty {
             providers = [ClaudeProvider()]
@@ -42,6 +53,7 @@ enum ProviderCatalog {
                 )
             }
         }
+        providers += hubProviders(family: "claude")
         if codexCards.isEmpty {
             providers.append(CodexProvider())
         } else {
@@ -57,6 +69,7 @@ enum ProviderCatalog {
                 )
             }
         }
+        providers += hubProviders(family: "codex")
         providers += [
             CursorProvider(),
             AntigravityProvider(),

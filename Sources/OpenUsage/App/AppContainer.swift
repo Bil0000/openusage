@@ -19,6 +19,9 @@ final class AppContainer {
     /// `APIKeyManaging`. Each matching Customize provider detail shows an API Key section and writes
     /// changes through the capability. Empty when no installed provider needs a user key.
     let apiKeyProviders: [any APIKeyManaging]
+    /// The connected CLIProxyAPI hubs (Settings ▸ Usage Hubs). Read once at launch to build hub
+    /// account cards; a hub added or removed later takes effect on the next launch.
+    let usageHubs: UsageHubStore
     /// Quota pace notification preferences (three independent triggers). Drives the Settings section
     /// and is read by `WidgetDataStore.evaluateNotifications`.
     let notificationSettings: NotificationSettingsStore
@@ -68,12 +71,15 @@ final class AppContainer {
         self.shellEnvironmentSnapshotTask = ShellEnvironmentSnapshotStore(defaults: .standard).startRefreshTask()
         // The launch account pass: which account is signed in at each family's default home. Feeds
         // the snapshot cache's account stamp and reconciles the account registry.
-        let accountAssembly = await ProviderAccountAssembly.make(waitsForLoginShell: true)
+        let usageHubs = UsageHubStore()
+        let accountAssembly = await ProviderAccountAssembly.make(waitsForLoginShell: true, hubs: usageHubs.hubs)
 
         let providers = ProviderCatalog.make(
             claudeCards: accountAssembly.claudeCards,
             codexCards: accountAssembly.codexCards,
-            claudeIdentityKeys: accountAssembly.identityKeysByCard
+            claudeIdentityKeys: accountAssembly.identityKeysByCard,
+            hubCards: accountAssembly.hubCards,
+            onHubAccountsListed: { [usageHubs] in usageHubs.updateAccounts(hubID: $0, $1) }
         )
         let registry = WidgetRegistry.from(providers)
         let apiKeyProviders = providers.compactMap { $0 as? any APIKeyManaging }
@@ -126,6 +132,7 @@ final class AppContainer {
         self.registry = registry
         self.enablement = enablement
         self.apiKeyProviders = apiKeyProviders
+        self.usageHubs = usageHubs
         self.notificationSettings = notificationSettings
         self.layout = layout
         self.dataStore = dataStore
@@ -137,41 +144,50 @@ final class AppContainer {
         // forced refresh returns `.skipped` when another refresh already owns the provider — and that
         // in-flight probe may carry *pre-claim* usage — so retry until this refresh actually runs
         // (bounded; the racing probe finishes in seconds).
-        self.codexResetClaims = Dictionary(uniqueKeysWithValues: providers.compactMap { $0 as? CodexProvider }.map { codex in
-            (codex.provider.id, CodexResetClaimService(
+        let postClaimRefresh: @MainActor (String) async -> Void = { [weak dataStore] providerID in
+            // The bound must outlast the provider's slowest refresh: usage fetch (10s timeout)
+            // + token refresh (15s) + usage retry (10s) + reset-credit fetch (10s) ≈ 45s. The
+            // common race (the periodic timer's probe) clears in a couple of seconds; the
+            // pathological one keeps the popover's honest "Resetting…" up rather than showing
+            // a success banner over pre-claim meters. A `.failed` probe is retried a few times
+            // too — a transient flake right after the claim must not strand pre-claim meters
+            // behind a success banner — before giving up loudly (the provider error already
+            // shows on the card, so the staleness isn't silent).
+            var failures = 0
+            for attempt in 0..<45 {
+                guard let dataStore else { return }
+                switch await dataStore.refresh(providerID: providerID, force: true) {
+                case .refreshed, .cacheHit, .backedOff:
+                    return
+                case .failed:
+                    failures += 1
+                    guard failures < 3 else {
+                        AppLog.error(LogTag.plugin("codex"), "post-claim refresh failed \(failures) times; meters may lag until the next cycle")
+                        return
+                    }
+                    try? await Task.sleep(for: .seconds(2))
+                case .skipped:
+                    AppLog.info(LogTag.plugin("codex"), "post-claim refresh waiting out an in-flight refresh (attempt \(attempt + 1))")
+                    try? await Task.sleep(for: .seconds(1))
+                }
+            }
+            AppLog.error(LogTag.plugin("codex"), "post-claim refresh kept being skipped; meters may lag until the next cycle")
+        }
+        var codexResetClaims: [String: CodexResetClaimService] = [:]
+        for codex in providers.compactMap({ $0 as? CodexProvider }) {
+            codexResetClaims[codex.provider.id] = CodexResetClaimService(
                 authStore: codex.authStore,
                 usageClient: codex.usageClient,
-                refreshAfterClaim: { [weak dataStore] in
-                    // The bound must outlast the provider's slowest refresh: usage fetch (10s timeout)
-                    // + token refresh (15s) + usage retry (10s) + reset-credit fetch (10s) ≈ 45s. The
-                    // common race (the periodic timer's probe) clears in a couple of seconds; the
-                    // pathological one keeps the popover's honest "Resetting…" up rather than showing
-                    // a success banner over pre-claim meters. A `.failed` probe is retried a few times
-                    // too — a transient flake right after the claim must not strand pre-claim meters
-                    // behind a success banner — before giving up loudly (the provider error already
-                    // shows on the card, so the staleness isn't silent).
-                    var failures = 0
-                    for attempt in 0..<45 {
-                        guard let dataStore else { return }
-                        switch await dataStore.refresh(providerID: codex.provider.id, force: true) {
-                        case .refreshed, .cacheHit, .backedOff:
-                            return
-                        case .failed:
-                            failures += 1
-                            guard failures < 3 else {
-                                AppLog.error(LogTag.plugin("codex"), "post-claim refresh failed \(failures) times; meters may lag until the next cycle")
-                                return
-                            }
-                            try? await Task.sleep(for: .seconds(2))
-                        case .skipped:
-                            AppLog.info(LogTag.plugin("codex"), "post-claim refresh waiting out an in-flight refresh (attempt \(attempt + 1))")
-                            try? await Task.sleep(for: .seconds(1))
-                        }
-                    }
-                    AppLog.error(LogTag.plugin("codex"), "post-claim refresh kept being skipped; meters may lag until the next cycle")
-                }
-            ))
-        })
+                refreshAfterClaim: { await postClaimRefresh(codex.provider.id) }
+            )
+        }
+        // A hub-held Codex account claims through the hub's tunnel — the same claim flow, the hub's token.
+        for hub in providers.compactMap({ $0 as? UsageHubProvider }) {
+            codexResetClaims[hub.provider.id] = hub.makeCodexResetClaimService(
+                refreshAfterClaim: { await postClaimRefresh(hub.provider.id) }
+            )
+        }
+        self.codexResetClaims = codexResetClaims
 
         // Anonymous usage telemetry (mandatory daily activity and crashes, optional provider rollups).
         // Its state lives in a dedicated UserDefaults suite, kept separate from app settings so the user's

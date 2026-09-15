@@ -20,6 +20,30 @@ same iCloud account. Settings shows the five-minute write cadence and each Mac's
 time; it also reports unavailable iCloud, loading, write, and malformed-file states. See
 [iCloud Sync](icloud-sync.md) for what is included and which surfaces use the combined values.
 
+## Usage Hubs
+
+Connect a [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) hub and OpenUsage shows the
+limits of every Claude and Codex account the hub pools, as cards next to your own logins — the same
+rows and plan badge a local login gets (Session, Weekly, model limits, credits, reset credits), minus
+the local spend tiles, which need the session logs that stay on the hub. Codex hub accounts keep the
+**Use** action for reset credits.
+
+| Control | What it does |
+|---|---|
+| Add Hub… | Opens an inline editor for the hub URL, its management key, and an optional label. **Connect** lists the hub's accounts right away, so a wrong URL or key fails here. |
+| Remove | Deletes the hub's saved management key from this Mac, behind a confirmation. The hub itself is untouched. |
+
+Hubs are saved in `~/.config/openusage/usage-hubs.json` (owner-only, like the API keys). Cards are
+built at launch, so restart OpenUsage after connecting or removing a hub; the section says so. Each
+card refresh re-reads the hub's account list, so an account added to the hub later appears on the
+next launch, and one the hub removed or disabled shows an error on its card. An account that is also
+signed in on this Mac keeps its local card — the hub adds nothing a local login lacks.
+
+The management key is sent only to the hub, as the `Authorization` header of its management API. The
+hub swaps in each account's own token; OpenUsage never sees those tokens. Plain `http://` works for
+`localhost`, IP addresses, and `.local` names; any other host needs `https://` (macOS blocks
+unencrypted connections to named hosts).
+
 ## Appearance
 
 | Setting | Options | What it does |

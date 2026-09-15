@@ -37,6 +37,13 @@ or renaming an account. Custom locations set with `XSWAP_HOME` or `XDG_DATA_HOME
 - Concurrent `xswap run` sessions are supported. Close Codex sessions before using `xswap switch`
   to change the global login, as required by Swap.
 
+### Accounts on a CLIProxyAPI hub
+
+Connect a hub in **Settings → Usage Hubs** and each Codex account it pools gets its own card,
+labeled with its email and the hub. Session, Weekly, Spark, credits, and reset credits read through
+the hub with that account's token; the spend tiles and Usage Trend are not shown, since the session
+logs live on the hub. An account that is also signed in on this Mac keeps its local card.
+
 ## The spend tiles
 
 With multiple Codex accounts, spending without a reliable account owner is excluded, including

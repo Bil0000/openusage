@@ -53,13 +53,14 @@ public struct UsageReader {
             }.value
         }
         let accountAssembly = providersOverride == nil
-            ? await ProviderAccountAssembly.make(defaults: defaults, waitsForLoginShell: false)
+            ? await ProviderAccountAssembly.make(defaults: defaults, waitsForLoginShell: false, hubs: UsageHubStore().hubs)
             : ProviderAccountAssembly(identityKeysByCard: [:])
         let providers = providersOverride ?? ProviderCatalog.make(
             defaults: defaults,
             claudeCards: accountAssembly.claudeCards,
             codexCards: accountAssembly.codexCards,
-            claudeIdentityKeys: accountAssembly.identityKeysByCard
+            claudeIdentityKeys: accountAssembly.identityKeysByCard,
+            hubCards: accountAssembly.hubCards
         )
         let registry = WidgetRegistry.from(providers)
         let knownIDs = Set(registry.providers.map(\.id))

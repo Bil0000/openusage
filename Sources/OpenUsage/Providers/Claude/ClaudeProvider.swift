@@ -67,6 +67,19 @@ final class ClaudeProvider: ProviderRuntime {
     }
 
     var widgetDescriptors: [WidgetDescriptor] {
+        Self.limitDescriptors(provider: provider) + [
+            .usageTrend(provider: provider)
+                .exportingHistory(
+                    scope: .machineLocal,
+                    estimatedCost: true,
+                    sourceNote: "From your Claude usage history (estimated)"
+                )
+        ] + WidgetDescriptor.spendTiles(provider: provider)
+    }
+
+    /// The live-limit rows every Claude card shows, local login or hub account alike. The trend and
+    /// spend tiles above need the session logs, which only a local login has.
+    static func limitDescriptors(provider: Provider) -> [WidgetDescriptor] {
         [
             .percent(id: "\(provider.id).session", provider: provider, title: "Session", sessionStartSignal: .missingResetDate)
                 .exportingLimit("session", unit: "percent"),
@@ -77,14 +90,8 @@ final class ClaudeProvider: ProviderRuntime {
             .percent(id: "\(provider.id).sonnet", provider: provider, title: "Sonnet")
                 .exportingLimit("sonnet", unit: "percent"),
             .boundedDollars(id: "\(provider.id).extra", provider: provider, title: "Extra Usage", metricLabel: "Extra usage spent", limit: 100, valueWord: "spent")
-                .exportingLimit("extraUsage", unit: "usd", source: .progressOrValue(kind: .dollars)),
-            .usageTrend(provider: provider)
-                .exportingHistory(
-                    scope: .machineLocal,
-                    estimatedCost: true,
-                    sourceNote: "From your Claude usage history (estimated)"
-                )
-        ] + WidgetDescriptor.spendTiles(provider: provider)
+                .exportingLimit("extraUsage", unit: "usd", source: .progressOrValue(kind: .dollars))
+        ]
     }
 
     func hasLocalCredentials() async -> Bool {
